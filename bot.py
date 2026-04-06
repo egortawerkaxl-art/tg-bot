@@ -21,54 +21,34 @@ import replicate
 import requests
 import os
 
+import requests
+import os
+
 def generate_image(description: str):
     try:
         prompt = build_prompt(description)
 
-        response = requests.post(
+        resp = requests.post(
             "https://api.replicate.com/v1/predictions",
             headers={
                 "Authorization": f"Token {os.getenv('REPLICATE_API_TOKEN')}",
                 "Content-Type": "application/json",
             },
             json={
-                "version": "db21e45d3f3f0c4c0e4f8c7b5d5b6f1f5e7f5f5f5f5f5f5f",  # SDXL версия
+                "version": "black-forest-labs/flux-schnell",
                 "input": {
                     "prompt": prompt,
-                    "width": 1024,
-                    "height": 1024,
                 }
             }
         )
 
-        data = response.json()
+        print("REPLICATE STATUS:", resp.status_code)
+        print("REPLICATE BODY:", resp.text)
 
-        # Если ошибка — выводим в логи
-        if "error" in data:
-            print("REPLICATE ERROR:", data["error"])
-            return None
-
-        # Получаем ID предсказания
-        prediction_id = data["id"]
-
-        # Ждём результат
-        while True:
-            result = requests.get(
-                f"https://api.replicate.com/v1/predictions/{prediction_id}",
-                headers={"Authorization": f"Token {os.getenv('REPLICATE_API_TOKEN')}"}
-            ).json()
-
-            if result["status"] == "succeeded":
-                image_url = result["output"][0]
-                img_data = requests.get(image_url).content
-                return img_data
-
-            if result["status"] == "failed":
-                print("REPLICATE FAILED:", result)
-                return None
+        return None
 
     except Exception as e:
-        print("REPLICATE ERROR:", e)
+        print("REPLICATE EXCEPTION:", e)
         return None
 
 
