@@ -18,6 +18,30 @@ STYLE, WEATHER, EVENT = range(3)
 
 
 # Главное меню
+def set_style(update, context):
+    if not context.args:
+        update.message.reply_text("Напиши стиль после команды. Например:\n/setstyle гранж")
+        return
+
+    style = " ".join(context.args).lower()
+    context.user_data["favorite_style"] = style
+    update.message.reply_text(f"Запомнил! Твой любимый стиль: {style}")
+
+
+def my_style(update, context):
+    style = context.user_data.get("favorite_style")
+
+    if not style:
+        update.message.reply_text("У тебя пока нет любимого стиля. Установи так:\n/setstyle гранж")
+        return
+
+    update.message.reply_text(f"Твой любимый стиль: {style}")
+
+
+def forget(update, context):
+    context.user_data.clear()
+    update.message.reply_text("Я всё забыл. Начнём заново!")
+
 def main_menu_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("Собрать образ", callback_data="make_outfit")],
