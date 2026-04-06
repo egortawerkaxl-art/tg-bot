@@ -24,31 +24,37 @@ import os
 import requests
 import os
 
+import requests
+
 def generate_image(description: str):
     try:
         prompt = build_prompt(description)
 
-        resp = requests.post(
-            "https://api.replicate.com/v1/predictions",
-            headers={
-                "Authorization": f"Token {os.getenv('REPLICATE_API_TOKEN')}",
-                "Content-Type": "application/json",
-            },
+        response = requests.post(
+            "https://api.deepinfra.com/v1/inference/stabilityai/sdxl",
             json={
-                "version": "black-forest-labs/flux-schnell",
-                "input": {
-                    "prompt": prompt,
-                }
-            }
+                "prompt": prompt,
+                "negative_prompt": "blurry, distorted, bad quality",
+                "width": 1024,
+                "height": 1024
+            },
+            timeout=120
         )
 
-        print("REPLICATE STATUS:", resp.status_code)
-        print("REPLICATE BODY:", resp.text)
+        data = response.json()
 
-        return None
+        # Если DeepInfra вернул ошибку
+        if "error" in data:
+            print("DEEPINFRA ERROR:", data["error"])
+            return None
+
+        # DeepInfra возвращает URL картинки
+        image_url = data["images"][0]
+        img_data = requests.get(image_url).content
+        return img_data
 
     except Exception as e:
-        print("REPLICATE EXCEPTION:", e)
+        print("DEEPINFRA EXCEPTION:", e)
         return None
 
 
