@@ -28,27 +28,39 @@ import requests
 
 import requests
 
+import requests
+
 def generate_image(description: str):
     try:
         prompt = build_prompt(description)
 
         response = requests.post(
-            "https://api.deepinfra.com/v1/inference/stabilityai/sdxl",
+            "https://api.deepinfra.com/v1/inference/black-forest-labs/flux-1-schnell",
             json={
                 "prompt": prompt,
                 "negative_prompt": "blurry, distorted, bad quality",
+                "num_inference_steps": 4,
+                "guidance_scale": 1.0,
                 "width": 1024,
                 "height": 1024
             },
             timeout=120
         )
 
-        print("DEEPINFRA RAW RESPONSE:", response.text)
-        return None
+        data = response.json()
+        print("DEEPINFRA RAW:", data)
+
+        if "images" not in data:
+            return None
+
+        image_url = data["images"][0]
+        img_data = requests.get(image_url).content
+        return img_data
 
     except Exception as e:
         print("DEEPINFRA EXCEPTION:", e)
         return None
+
 
 
 def image_command(update: Update, context: CallbackContext):
