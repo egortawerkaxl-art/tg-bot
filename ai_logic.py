@@ -50,26 +50,14 @@ RANDOM_PHRASES = [
     "Если сомневаешься — надевай чёрное.",
     "Ты выглядишь лучше, чем вчера.",
     "Стиль — это уверенность. У тебя её хватает.",
-    "Ты выглядишь как человек, который знает, что делает.",
     "Этот образ — прям 🔥",
 ]
-
-# Пасхалки
-EASTER_EGGS = {
-    "drip": "💧 DRIP MODE ACTIVATED 💧\n\nТвой стиль сегодня настолько мощный, что люди будут оборачиваться.",
-    "catwalk": "🕺 Ты выходишь как на подиум. Держи осанку!",
-    "ego": "Егор, ты и так стильный. Но я сделаю тебя ещё лучше 😉",
-}
 
 
 def get_recommendations(style, weather, event):
     style = style.lower()
     weather = weather.lower()
     event = event.lower()
-
-    # Пасхалки
-    if style in EASTER_EGGS:
-        return EASTER_EGGS[style]
 
     result = []
 
