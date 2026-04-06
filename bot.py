@@ -200,6 +200,9 @@ def main():
 
     dp.add_handler(dialog)
     dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("setstyle", set_style))
+    dp.add_handler(CommandHandler("mystyle", my_style))
+    dp.add_handler(CommandHandler("forget", forget))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
     print("Bot started on Railway!")
