@@ -16,29 +16,33 @@ def build_prompt(description: str):
     )
 
 
+import replicate
+
 def generate_image(description: str):
-    if not HF_TOKEN:
-        return None
+    try:
+        prompt = build_prompt(description)
 
-    prompt = build_prompt(description)
-
-    response = requests.post(
-        "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
-        headers={"Authorization": f"Bearer {HF_TOKEN}"},
-        json={
-            "inputs": prompt,
-            "parameters": {
-                "negative_prompt": "blurry, distorted, bad quality, deformed face, extra limbs"
+        output = replicate.run(
+            "black-forest-labs/flux-schnell",
+            input={
+                "prompt": prompt,
+                "num_outputs": 1,
+                "aspect_ratio": "1:1",
+                "output_format": "png"
             }
-        },
-        timeout=120,
-    )
+        )
 
-    if response.status_code != 200:
-        print("HF ERROR:", response.text)
+        # Replicate возвращает список URL
+        if isinstance(output, list) and len(output) > 0:
+            image_url = output[0]
+            img_data = requests.get(image_url).content
+            return img_data
+
         return None
 
-    return response.content
+    except Exception as e:
+        print("REPLICATE ERROR:", e)
+        return None
 
 
 def image_command(update: Update, context: CallbackContext):
