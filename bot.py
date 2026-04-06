@@ -26,6 +26,8 @@ import os
 
 import requests
 
+import requests
+
 def generate_image(description: str):
     try:
         prompt = build_prompt(description)
@@ -41,17 +43,8 @@ def generate_image(description: str):
             timeout=120
         )
 
-        data = response.json()
-
-        # Если DeepInfra вернул ошибку
-        if "error" in data:
-            print("DEEPINFRA ERROR:", data["error"])
-            return None
-
-        # DeepInfra возвращает URL картинки
-        image_url = data["images"][0]
-        img_data = requests.get(image_url).content
-        return img_data
+        print("DEEPINFRA RAW RESPONSE:", response.text)
+        return None
 
     except Exception as e:
         print("DEEPINFRA EXCEPTION:", e)
