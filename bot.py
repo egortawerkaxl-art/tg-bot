@@ -1,92 +1,120 @@
 import os
 import requests
 from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
 from ai_logic import get_recommendations
 
 HF_TOKEN = os.getenv("HF_TOKEN")
-HF_MODEL = "black-forest-labs/FLUX.1-dev"  # универсальная модель для реалистичных fashion-образов
+HF_MODEL = "SG161222/Realistic_Vision_V6.0_B1_noVAE"  # стабильная модель
+
 
 # -------------------------------
 # Промпт-конструктор
 # -------------------------------
-def build_prompt(description: str):
+def build_prompt(description: str) -> str:
     return (
-        f"Fashion photoshoot, Pinterest aesthetic, realistic model, stylish outfit, "
-        f"soft lighting, high detail, modern look, full body, {description}"
+        "Fashion photoshoot, Pinterest aesthetic, realistic model, stylish outfit, "
+        "soft lighting, high detail, modern look, full body, " + description
     )
+
 
 # -------------------------------
 # Генерация изображения
 # -------------------------------
 def generate_image(description: str):
+    if not HF_TOKEN:
+        return None
+
     prompt = build_prompt(description)
 
     response = requests.post(
         f"https://api-inference.huggingface.co/models/{HF_MODEL}",
         headers={"Authorization": f"Bearer {HF_TOKEN}"},
-        json={"inputs": prompt},
+        json={
+            "inputs": prompt,
+            "parameters": {
+                "negative_prompt": "blurry, distorted, bad quality, deformed face, extra limbs"
+            }
+        },
+        timeout=120,
     )
 
     if response.status_code != 200:
+        print("HF ERROR:", response.text)
         return None
 
     return response.content
 
+
 # -------------------------------
 # Команда /image
 # -------------------------------
-def image_command(update: Update, context: CallbackContext):
+async def image_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        update.message.reply_text("Напиши описание образа. Например:\n/image кожаная куртка, мартинсы, цепи")
+        await update.message.reply_text(
+            "Напиши описание образа. Например:\n/image кожаная куртка, мартинсы, цепи"
+        )
         return
 
     description = " ".join(context.args)
-    update.message.reply_text("Генерирую образ...")
+    await update.message.reply_text("Генерирую образ...")
 
     img = generate_image(description)
     if img:
-        update.message.reply_photo(img)
+        await update.message.reply_photo(img)
     else:
-        update.message.reply_text("Не удалось создать изображение. Попробуй другое описание.")
+        await update.message.reply_text("Не удалось создать изображение. Попробуй другое описание.")
+
 
 # -------------------------------
-# Авто-режим: если текст начинается с «сделай образ»
+# Авто-режим
 # -------------------------------
-def auto_image(update: Update, context: CallbackContext):
-    text = update.message.text.lower()
+async def auto_image_or_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = (update.message.text or "").lower().strip()
 
+    # Авто-генерация по фразе "сделай образ"
     if text.startswith("сделай образ"):
-        description = text.replace("сделай образ", "").strip()
+        description = text.replace("сделай образ", "", 1).strip()
         if not description:
-            update.message.reply_text("Опиши образ. Например:\nсделай образ кожаная куртка, мартинсы, цепи")
+            await update.message.reply_text(
+                "Опиши образ. Например:\nсделай образ кожаная куртка, мартинсы, цепи"
+            )
             return
 
-        update.message.reply_text("Генерирую образ...")
+        await update.message.reply_text("Генерирую образ...")
 
         img = generate_image(description)
         if img:
-            update.message.reply_photo(img)
+            await update.message.reply_photo(img)
         else:
-            update.message.reply_text("Не удалось создать изображение.")
+            await update.message.reply_text("Не удалось создать изображение.")
         return
 
-    # если это не запрос на картинку — обычная логика
+    # Обычные рекомендации
     parts = text.split()
     if len(parts) >= 3:
         style, weather, event = parts[0], parts[1], parts[2]
         result = get_recommendations(style, weather, event)
-        update.message.reply_text(result)
+        await update.message.reply_text(result)
     else:
-        update.message.reply_text("Напиши: стиль погода событие\nНапример: гранж холодно вечеринка")
+        await update.message.reply_text(
+            "Напиши: стиль погода событие\nНапример: гранж холодно вечеринка"
+        )
+
 
 # -------------------------------
-# Кнопка «Сгенерировать образ»
+# Кнопка
 # -------------------------------
-def start(update: Update, context: CallbackContext):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [["Сгенерировать образ"]]
-    update.message.reply_text(
+    await update.message.reply_text(
         "Привет! Я твой fashion-ассистент.\n\n"
         "Напиши:\n"
         "• стиль погода событие\n"
@@ -95,29 +123,32 @@ def start(update: Update, context: CallbackContext):
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True),
     )
 
-def button_handler(update: Update, context: CallbackContext):
-    text = update.message.text.lower()
 
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = (update.message.text or "").lower()
     if "сгенерировать образ" in text:
-        update.message.reply_text("Опиши образ, и я создам картинку.")
+        await update.message.reply_text("Опиши образ, и я создам картинку.")
         return
 
-    auto_image(update, context)
+    await auto_image_or_text(update, context)
+
 
 # -------------------------------
 # MAIN
 # -------------------------------
 def main():
-    updater = Updater(os.getenv("BOT_TOKEN"), use_context=True)
-    dp = updater.dispatcher
+    bot_token = os.getenv("BOT_TOKEN")
+    if not bot_token:
+        raise RuntimeError("BOT_TOKEN не задан в переменных окружения")
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("image", image_command))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, button_handler))
+    app = ApplicationBuilder().token(bot_token).build()
 
-    updater.start_polling()
-    updater.idle()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("image", image_command))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, button_handler))
+
+    app.run_polling()
+
 
 if __name__ == "__main__":
     main()
-
