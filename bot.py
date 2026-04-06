@@ -18,27 +18,54 @@ def build_prompt(description: str):
 
 import replicate
 
+import requests
+import os
+
 def generate_image(description: str):
     try:
         prompt = build_prompt(description)
 
-        output = replicate.run(
-            "black-forest-labs/flux-schnell",
-            input={
-                "prompt": prompt,
-                "num_outputs": 1,
-                "aspect_ratio": "1:1",
-                "output_format": "png"
+        response = requests.post(
+            "https://api.replicate.com/v1/predictions",
+            headers={
+                "Authorization": f"Token {os.getenv('REPLICATE_API_TOKEN')}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "version": "db21e45d3f3f0c4c0e4f8c7b5d5b6f1f5e7f5f5f5f5f5f5f",  # SDXL версия
+                "input": {
+                    "prompt": prompt,
+                    "width": 1024,
+                    "height": 1024,
+                }
             }
         )
 
-        # Replicate возвращает список URL
-        if isinstance(output, list) and len(output) > 0:
-            image_url = output[0]
-            img_data = requests.get(image_url).content
-            return img_data
+        data = response.json()
 
-        return None
+        # Если ошибка — выводим в логи
+        if "error" in data:
+            print("REPLICATE ERROR:", data["error"])
+            return None
+
+        # Получаем ID предсказания
+        prediction_id = data["id"]
+
+        # Ждём результат
+        while True:
+            result = requests.get(
+                f"https://api.replicate.com/v1/predictions/{prediction_id}",
+                headers={"Authorization": f"Token {os.getenv('REPLICATE_API_TOKEN')}"}
+            ).json()
+
+            if result["status"] == "succeeded":
+                image_url = result["output"][0]
+                img_data = requests.get(image_url).content
+                return img_data
+
+            if result["status"] == "failed":
+                print("REPLICATE FAILED:", result)
+                return None
 
     except Exception as e:
         print("REPLICATE ERROR:", e)
