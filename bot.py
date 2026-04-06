@@ -168,11 +168,23 @@ def event_selected(update, context):
     return ConversationHandler.END
 
 
-# Обработка обычных сообщений
 def handle_message(update, context):
     text = update.message.text.strip()
     parts = text.split()
 
+    # Если пользователь написал только погоду и событие
+    if len(parts) == 2:
+        favorite = context.user_data.get("favorite_style")
+        if favorite:
+            style = favorite
+            weather, event = parts[0], parts[1]
+            result = get_recommendations(style, weather, event)
+            update.message.reply_text(
+                f"Использую твой любимый стиль: {style}\n\n{result}"
+            )
+            return
+
+    # Обычный режим: стиль + погода + событие
     if len(parts) < 3:
         update.message.reply_text(
             "Напиши: стиль погода событие\nНапример: гранж холодно вечеринка"
