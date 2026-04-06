@@ -4,3 +4,4 @@ pytz
 tzlocal
 cachetools
 tornado==6.1
+requests
